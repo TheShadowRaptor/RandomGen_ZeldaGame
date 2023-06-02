@@ -1,10 +1,13 @@
 using System;
+using System.Buffers.Text;
 using System.Collections;
 using System.Collections.Generic;
 using Unity.VisualScripting;
 using UnityEditor.Experimental.GraphView;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.PlayerLoop;
+using static UnityEngine.UI.Image;
 
 public class PlayerController : MonoBehaviour
 {
@@ -112,15 +115,55 @@ public class PlayerController : MonoBehaviour
 
         Vector3 movement = cameraRight * moveInput.x + cameraForward * moveInput.y;
         movement.y = 0f; // Disable any vertical movement
+        movement.Normalize(); // Normalize the movement vector to ensure its magnitude does not exceed 1
 
         dashRecharge -= Time.deltaTime;
+
+
+        // Check for wall collision
+        if (CheckWallCollision(movement.normalized))
+        {
+            // If wall collision detected, stop movement
+            movement = Vector3.zero;
+        }
+
+        // Check for slope and step detection
+        else if (CheckForSlope(movement.normalized) || CheckForStep(movement.normalized))
+        {
+            // If on a slope or step, move up
+            gameObject.transform.Translate(Vector3.up * moveSpeed * 2 * Time.deltaTime);
+        }
+
+        // Store the last movement direction when not dashing
+        if (movement.magnitude > 0f)
+        {
+            lastMovementDirection = movement.normalized;
+        }
 
         if (isDashing && dashRecharge <= 0)
         {
             dashRecharge = 0;
             dashLength -= Time.deltaTime;
-            // Movement when dashing
-            gameObject.transform.Translate(lastMovementDirection * moveSpeed * 4f * Time.deltaTime);
+            if (!CheckWallCollision(lastMovementDirection.normalized))
+            {
+                // Movement when dashing
+                gameObject.transform.Translate(lastMovementDirection * moveSpeed * 4f * Time.deltaTime);
+            }
+            else if (CheckForSlope(lastMovementDirection.normalized) || CheckForStep(lastMovementDirection.normalized))
+            {
+                // Dash up steps and slopes
+                lastMovementDirection += Vector3.up;
+                gameObject.transform.Translate(lastMovementDirection * moveSpeed * 4f * Time.deltaTime);
+            }
+            else
+            {
+                // If hit wall
+                isDashing = false;
+                dashLength = initDashLength;
+                dashRecharge = initdashRecharge;
+                lastMovementDirection = Vector3.zero;
+            }
+
             if (dashLength <= 0)
             {
                 isDashing = false;
@@ -130,12 +173,8 @@ public class PlayerController : MonoBehaviour
         }
         else
         {
-            // Store the last movement direction when not dashing
-            if (movement.magnitude > 0f)
-            {
-                lastMovementDirection = movement.normalized;
-            }
 
+            // Move player
             gameObject.transform.Translate(movement * moveSpeed * Time.deltaTime);
         }
 
@@ -168,6 +207,57 @@ public class PlayerController : MonoBehaviour
         }
     }
 
+    [SerializeField] private LayerMask terrainMasks;
+    private bool CheckWallCollision(Vector3 movementDirection)
+    {
+        // Perform a raycast in the movement direction to check for wall collision
+        RaycastHit hit;
+        if (Physics.Raycast(transform.position, movementDirection, out hit, 0.5f, terrainMasks))
+        {
+            // Wall collision detected
+            return true;
+        }
+
+        return false;
+    }
+
+    [SerializeField] private Transform feetTransform;
+    [SerializeField] private float maxSlopeAngle = 45;
+    bool CheckForSlope(Vector3 movementDirection)
+    {
+        float slopeRayLength = 1.0f; // Adjust the length based on the maximum slope height you want to handle
+
+        Vector3 slopeRayOrigin = feetTransform.position;
+        slopeRayOrigin += Vector3.up * 0.1f; // Adjust the offset to avoid casting the ray from inside the collider
+
+        if (Physics.Raycast(slopeRayOrigin, movementDirection, out RaycastHit hit, slopeRayLength, terrainMasks))
+        {
+            // Calculate the slope angle
+            float slopeAngle = Vector3.Angle(hit.normal, Vector3.up);
+
+            // Check if the slope angle is within the acceptable range
+            if (slopeAngle > 0f && slopeAngle <= maxSlopeAngle)
+            {
+                Debug.Log("OnSlope");
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    bool CheckForStep(Vector3 movementDirection)
+    {
+
+        if (Physics.Raycast(feetTransform.position, movementDirection, out RaycastHit hit, 0.5f, terrainMasks))
+        {
+                Debug.Log("OnSlope");
+                return true;
+        }
+
+        return false;
+    }
+
     bool IsGrounded()
     {
         // Manually setting SphereCast
@@ -180,4 +270,5 @@ public class PlayerController : MonoBehaviour
         if (Physics.SphereCast(origin, radius, direction, out hit, maxDistance)) return true;
         else return false;
     }
+
 }
