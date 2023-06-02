@@ -1,14 +1,26 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
+using Unity.VisualScripting;
+using UnityEditor.Experimental.GraphView;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using static UnityEngine.UI.Image;
 
 public class PlayerController : MonoBehaviour
 {
     private static PlayerController instance;
+
     private Vector2 moveInput;
+    private bool dashInput;
+
+    [SerializeField] private GameObject body;
+    [SerializeField] private Animator animator;
+    private int animationAttackHash;
+
+
     [SerializeField] float moveSpeed = 1f;
+
+    [SerializeField] private InputActionReference move, dash, attack;
 
     public static PlayerController Instance
     {
@@ -28,6 +40,29 @@ public class PlayerController : MonoBehaviour
             return instance;
         }
     }
+    private void OnEnable()
+    {
+        dash.action.performed += PerformDash;
+        attack.action.performed += PerformAttack;
+    }
+
+    private void OnDisable()
+    {
+        dash.action.performed -= PerformDash;
+        attack.action.performed -= PerformAttack;
+    }
+
+    private void PerformAttack(InputAction.CallbackContext context)
+    {
+        SwingSword();
+    }
+
+    bool isDashing;
+    private void PerformDash(InputAction.CallbackContext context)
+    {
+        isDashing = true;
+    }
+
 
     private void Awake()
     {
@@ -42,47 +77,95 @@ public class PlayerController : MonoBehaviour
         }
     }
 
-    void OnMove(InputValue value)
-    {
-        moveInput = value.Get<Vector2>();
-    }
-
     // Start is called before the first frame update
     void Start()
     {
-
+        animator = GetComponent<Animator>();
+        animationAttackHash = Animator.StringToHash("SwingSword1");
     }
 
     // Update is called once per frame
     void Update()
     {
+        CheckAnimationStates();
         MovePlayer();
-        if (!IsGrounded()) TogglePlayerGravity();
+        if (!IsGrounded() && !isDashing) TogglePlayerGravity();
     }
 
-    private void FixedUpdate()
-    {
+    Quaternion targetRotation;
 
-    }
+    float dashLength = 0.2f;
+    float initDashLength = 0.2f;
+    float dashRecharge = 0.5f;
+    float initdashRecharge = 0.5f;
+    Vector3 lastMovementDirection = Vector3.zero; // Variable to store the last movement direction
 
     void MovePlayer()
     {
-        // Apply movement based on input
-        Vector3 movement = new Vector3(moveInput.x, 0f, moveInput.y);
+        moveInput = move.action.ReadValue<Vector2>();
         Vector3 cameraForward = Camera.main.transform.forward;
+        Vector3 cameraRight = Camera.main.transform.right;
         cameraForward.y = 0f; // Ensure the camera is not pointing up or down
+        cameraRight.y = 0f;
         cameraForward.Normalize();
+        cameraRight.Normalize();
 
-        // Transform the movement vector to align with the camera's direction
-        movement = Camera.main.transform.TransformDirection(movement);
+        Vector3 movement = cameraRight * moveInput.x + cameraForward * moveInput.y;
         movement.y = 0f; // Disable any vertical movement
 
-        gameObject.transform.Translate(movement * moveSpeed * Time.deltaTime);
+        dashRecharge -= Time.deltaTime;
+
+        if (isDashing && dashRecharge <= 0)
+        {
+            dashRecharge = 0;
+            dashLength -= Time.deltaTime;
+            // Movement when dashing
+            gameObject.transform.Translate(lastMovementDirection * moveSpeed * 4f * Time.deltaTime);
+            if (dashLength <= 0)
+            {
+                isDashing = false;
+                dashLength = initDashLength;
+                dashRecharge = initdashRecharge;
+            }
+        }
+        else
+        {
+            // Store the last movement direction when not dashing
+            if (movement.magnitude > 0f)
+            {
+                lastMovementDirection = movement.normalized;
+            }
+
+            gameObject.transform.Translate(movement * moveSpeed * Time.deltaTime);
+        }
+
+        if (movement.magnitude > 0f)
+        {
+            targetRotation = Quaternion.LookRotation(movement);
+        }
+
+        body.transform.rotation = Quaternion.Lerp(body.transform.rotation, targetRotation, 8f * Time.deltaTime);
     }
 
     void TogglePlayerGravity()
     {
         gameObject.transform.Translate(-Vector3.up * 9.81f * Time.deltaTime);
+    }
+
+    void SwingSword()
+    {
+        animator.SetBool("Attack", true);
+    }
+
+    void CheckAnimationStates()
+    {
+        // Check if the desired animation state has finished playing
+        if (animator.GetCurrentAnimatorStateInfo(0).normalizedTime >= 1.0f
+            && animator.GetCurrentAnimatorStateInfo(0).IsName("SwingSword1"))
+        {
+            // Animation has finished playing
+            animator.SetBool("Attack", false);
+        }
     }
 
     bool IsGrounded()
@@ -91,7 +174,7 @@ public class PlayerController : MonoBehaviour
         Vector3 origin = transform.position;
         Vector3 direction = -Vector3.up;
         float radius = 0.5f;
-        float maxDistance = 1.0f;
+        float maxDistance = 0.5f;
 
         RaycastHit hit;
         if (Physics.SphereCast(origin, radius, direction, out hit, maxDistance)) return true;
