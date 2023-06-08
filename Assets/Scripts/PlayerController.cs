@@ -1,13 +1,6 @@
-using System;
-using System.Buffers.Text;
-using System.Collections;
-using System.Collections.Generic;
-using Unity.VisualScripting;
-using UnityEditor.Experimental.GraphView;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using UnityEngine.PlayerLoop;
-using static UnityEngine.UI.Image;
+using UnityEngine.UI;
 
 public class PlayerController : MonoBehaviour
 {
@@ -20,6 +13,7 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private Animator animator;
     private int animationAttackHash;
 
+    [SerializeField] GameObject weaponHand;
 
     [SerializeField] float moveSpeed = 1f;
 
@@ -93,6 +87,10 @@ public class PlayerController : MonoBehaviour
         CheckAnimationStates();
         MovePlayer();
         if (!IsGrounded() && !isDashing) TogglePlayerGravity();
+        if (canHit)
+        {
+            CheckForHitable();
+        }
     }
 
     Quaternion targetRotation;
@@ -191,9 +189,25 @@ public class PlayerController : MonoBehaviour
         gameObject.transform.Translate(-Vector3.up * 9.81f * Time.deltaTime);
     }
 
+    bool canHit;
+    [SerializeField] float weaponRayLength;
+    [SerializeField] LayerMask hitableMasks;
     void SwingSword()
     {
+        canHit = true;     
         animator.SetBool("Attack", true);
+    }
+
+    void CheckForHitable()
+    {
+        GameObject currentWeaponRaycast = weaponHand.transform.GetChild(0).GetChild(0).GetChild(0).gameObject; //Hand/HandPivot/Weapon/WeaponRaycast
+        Debug.DrawRay(currentWeaponRaycast.transform.position, currentWeaponRaycast.gameObject.transform.forward, Color.red, weaponRayLength);
+        if (Physics.Raycast(currentWeaponRaycast.transform.position, currentWeaponRaycast.gameObject.transform.forward, out RaycastHit hit, weaponRayLength, hitableMasks) && canHit)
+        {
+            ObjectExample targetObject = hit.collider.gameObject.GetComponent<ObjectExample>();
+            this.gameObject.GetComponent<ObjectExample>().attackOtherObject = targetObject;
+            this.gameObject.GetComponent<ObjectExample>().DoAttack();
+        }
     }
 
     void CheckAnimationStates()
@@ -204,6 +218,7 @@ public class PlayerController : MonoBehaviour
         {
             // Animation has finished playing
             animator.SetBool("Attack", false);
+            canHit = false;
         }
     }
 
