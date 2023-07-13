@@ -1,3 +1,5 @@
+using DG.Tweening;
+using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
@@ -142,15 +144,15 @@ public class PlayerController : MonoBehaviour
         {
             dashRecharge = 0;
             dashLength -= Time.deltaTime;
-            if (!CheckWallCollision(lastMovementDirection.normalized))
-            {
-                // Movement when dashing
-                gameObject.transform.Translate(lastMovementDirection * moveSpeed * 4f * Time.deltaTime);
-            }
-            else if (CheckForSlope(lastMovementDirection.normalized) || CheckForStep(lastMovementDirection.normalized))
+            if (CheckForSlope(lastMovementDirection.normalized) || CheckForStep(lastMovementDirection.normalized))
             {
                 // Dash up steps and slopes
                 lastMovementDirection += Vector3.up;
+                gameObject.transform.Translate(lastMovementDirection * moveSpeed * 4f * Time.deltaTime);
+            }
+            if (!CheckWallCollision(lastMovementDirection.normalized))
+            {
+                // Movement when dashing
                 gameObject.transform.Translate(lastMovementDirection * moveSpeed * 4f * Time.deltaTime);
             }
             else
@@ -204,9 +206,9 @@ public class PlayerController : MonoBehaviour
         Debug.DrawRay(currentWeaponRaycast.transform.position, currentWeaponRaycast.gameObject.transform.forward, Color.red, weaponRayLength);
         if (Physics.Raycast(currentWeaponRaycast.transform.position, currentWeaponRaycast.gameObject.transform.forward, out RaycastHit hit, weaponRayLength, hitableMasks) && canHit)
         {
-            ObjectExample targetObject = hit.collider.gameObject.GetComponent<ObjectExample>();
-            this.gameObject.GetComponent<ObjectExample>().attackOtherObject = targetObject;
-            this.gameObject.GetComponent<ObjectExample>().DoAttack();
+            ObjectSystem targetObject = hit.collider.gameObject.GetComponent<ObjectSystem>();
+            this.gameObject.GetComponent<ObjectSystem>().attackOtherObject = targetObject;
+            this.gameObject.GetComponent<ObjectSystem>().DoAttack();
         }
     }
 
@@ -225,13 +227,21 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private LayerMask terrainMasks;
     private bool CheckWallCollision(Vector3 movementDirection)
     {
+        Vector3 playerTorso = transform.position;
+        Vector3 playerLegs = new Vector3(transform.position.x, transform.position.y - 0.5f, transform.position.z);
         // Perform a raycast in the movement direction to check for wall collision
         RaycastHit hit;
-        if (Physics.Raycast(transform.position, movementDirection, out hit, 0.5f, terrainMasks))
+        if (Physics.Raycast(playerTorso, movementDirection, out hit, 0.3f, terrainMasks))
         {
             // Wall collision detected
             return true;
         }
+        else if (Physics.Raycast(playerLegs, movementDirection, out hit, 0.5f, terrainMasks))
+        {
+            // Wall collision detected
+            return true;
+        }
+        Debug.DrawRay(playerLegs, movementDirection, Color.green, 0.5f);
 
         return false;
     }
@@ -263,11 +273,14 @@ public class PlayerController : MonoBehaviour
 
     bool CheckForStep(Vector3 movementDirection)
     {
-
-        if (Physics.Raycast(feetTransform.position, movementDirection, out RaycastHit hit, 0.5f, terrainMasks))
+        Vector3 stepMaxHeight = new Vector3(feetTransform.position.x, feetTransform.position.y + 0.5f, feetTransform.position.z);
+        if (Physics.Raycast(feetTransform.position, movementDirection, out RaycastHit feetHit, 0.5f, terrainMasks))
         {
-                Debug.Log("OnSlope");
+            if (!Physics.Raycast(stepMaxHeight, movementDirection, out RaycastHit heightHit, 0.5f, terrainMasks))
+            {
+                Debug.Log("OnStep");
                 return true;
+            }
         }
 
         return false;

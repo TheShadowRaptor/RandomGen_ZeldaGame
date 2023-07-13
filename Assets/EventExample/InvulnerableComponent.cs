@@ -4,10 +4,10 @@ using UnityEngine;
 
 public class InvulnerableComponent : ObjectComponent
 {
-    public override bool SendEvent(EventExample eventSent)
+    public override bool SendEvent(EventController eventSent)
     {
-        if (eventSent.eventName == "AttemptDealDamage") {
-            eventSent.eventParameters["Damage"] = 0;
+        if (eventSent.eventName == EventController.Event.attemptDealDamage) {
+            //eventSent.eventParameters[EventController.Event.damage] = 0;
         }
 
         return true;
@@ -16,12 +16,12 @@ public class InvulnerableComponent : ObjectComponent
 
 public class ShieldComponent : ObjectComponent
 {
-    public override bool SendEvent(EventExample eventSent)
+    public override bool SendEvent(EventController eventSent)
     {
-        if (eventSent.eventName == "AttemptDealDamage")
+        if (eventSent.eventName == EventController.Event.attemptDealDamage)
         {
-            int damageAmount = eventSent.eventParameters.GetInt("Damage", 0);
-            eventSent.eventParameters["Damage"] = damageAmount/2;
+            //int damageAmount = eventSent.eventParameters.Get(EventController.Event.damage, 0);
+            //eventSent.eventParameters[EventController.Event.damage] = damageAmount / 2;
         }
 
         return true;
@@ -29,10 +29,13 @@ public class ShieldComponent : ObjectComponent
 }
 
 
-public class FireImmunity : ObjectComponent {
-    public override bool SendEvent(EventExample eventSent) {
-        if (eventSent.eventName == "AttemptDealDamage") {
-            eventSent.eventParameters["FireDamage"] = 0;
+public class FireImmunity : ObjectComponent
+{
+    public override bool SendEvent(EventController eventSent)
+    {
+        if (eventSent.eventName == EventController.Event.attemptDealDamage)
+        {
+            //eventSent.eventParameters[EventController.Event.fireDamage] = 0;
         }
         return true;
     }
@@ -42,19 +45,22 @@ public class FireSword : ObjectComponent
 {
     public int damageAmount = 5;
     public int fireDamageAmount = 5;
-    public override void Initialize(List<ComponentParameter> parameters)  {
+
+    public override void Initialize(List<ComponentParameter> parameters)
+    {
         base.Initialize(parameters);
-        damageAmount = parameterDictionary.GetInt("Damage", 5);
-        fireDamageAmount = parameterDictionary.GetInt("FireDamage", 5);
+        //damageAmount = parameterDictionary.Get(EventController.Event.damage, 5);
+        //fireDamageAmount = parameterDictionary.Get(EventController.Event.fireDamage, 5);
     }
 
-    public override bool SendEvent(EventExample eventSent) {
-        if (eventSent.eventName == "AttemptAttack")
+    public override bool SendEvent(EventController eventSent)
+    {
+        if (eventSent.eventName == EventController.Event.attemptAttack)
         {
-            int damage = eventSent.eventParameters.GetInt("Damage", 0);
-            eventSent.eventParameters["Damage"] = damage + damageAmount; 
-            int currentFireDamage = eventSent.eventParameters.GetInt("FireDamage", 0); 
-            eventSent.eventParameters["FireDamage"] = currentFireDamage+fireDamageAmount;
+            //int damage = eventSent.eventParameters.Get(EventController.Event.damage, 0);
+            //eventSent.eventParameters[EventController.Event.damage] = damage + damageAmount;
+            //int currentFireDamage = eventSent.eventParameters.Get(EventController.Event.fireDamage, 0);
+            //eventSent.eventParameters[EventController.Event.fireDamage] = currentFireDamage + fireDamageAmount;
         }
 
         return true;

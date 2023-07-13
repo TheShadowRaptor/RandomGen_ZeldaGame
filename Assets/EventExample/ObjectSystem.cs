@@ -3,8 +3,10 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
+using UnityEngine.Rendering.Universal;
+using UnityEngine.Rendering;
 
-public class ObjectExample : MonoBehaviour
+public class ObjectSystem : MonoBehaviour
 {
     public List<ObjectComponentBlueprint> componentsBlueprint = new List<ObjectComponentBlueprint>();
     List<ObjectComponent> ObjectComponents = new List<ObjectComponent>();
@@ -16,21 +18,21 @@ public class ObjectExample : MonoBehaviour
         }
     }
 
-    public ObjectExample attackOtherObject;
-    [ContextMenu("Do Attack")]
+    public ObjectSystem attackOtherObject;
+    [ContextMenu("Do Attack")] // In Inspector
     public void DoAttack()
     {
         if (!invincibilityFrameActive) // Check if invincibility frames are active
         {
-            EventExample attemptAttackEvent = new EventExample("AttemptAttack", "Attacker", this, "Damage", 5);
+            EventController attemptAttackEvent = new EventController(EventController.Event.attemptAttack, (int)EventController.Object.attacker, this, (int)EventController.DamageType.normalDamage, 5);
             if (SendEvent(attemptAttackEvent))
             {
-                var AttemptDealDamage = attemptAttackEvent.ChangeEventName("AttemptDealDamage");
+                var AttemptDealDamage = attemptAttackEvent.ChangeEventName(EventController.Event.attemptDealDamage);
                 if (attackOtherObject.SendEvent(AttemptDealDamage))
                 {
                     Debug.Log($"Send event AttemptAttack succeeded to {attackOtherObject}. {attemptAttackEvent}");
                     // Event succeeded, let's execute attack.
-                    EventExample executeAttack = AttemptDealDamage.ChangeEventName("ExecuteDealDamage");
+                    EventController executeAttack = AttemptDealDamage.ChangeEventName(EventController.Event.executeDealDamage);
                     if (attackOtherObject.SendEvent(executeAttack))
                     {
                         Debug.Log($"Send event ExecuteAttack succeeded to {attackOtherObject} {executeAttack}");
@@ -53,20 +55,67 @@ public class ObjectExample : MonoBehaviour
 
     private bool invincibilityFrameActive = false;
     private float invincibilityDuration = 0.4f;
+    private List<Material[]> originalMaterials;
 
-    private IEnumerator ActivateInvincibilityFrames()
+    private Material damagedMaterial;
+
+    private IEnumerator ActivateInvincibilityFrames(ObjectSystem otherObject)
     {
         invincibilityFrameActive = true;
+
+        // Store the original materials of the object and its children
+        originalMaterials = new List<Material[]>();
+        Renderer[] renderers = otherObject.gameObject.GetComponentsInChildren<Renderer>();
+
+        if (damagedMaterial == null)
+        {
+            damagedMaterial = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+            damagedMaterial.SetColor("_BaseColor", Color.red);
+        }
+
+        foreach (Renderer renderer in renderers)
+        {
+            // Store the original URP materials of each child renderer
+            Material[] originalURPMaterials = renderer.sharedMaterials;
+            originalMaterials.Add(originalURPMaterials);
+
+            // Create a new array for the modified materials
+            Material[] modifiedMaterials = new Material[originalURPMaterials.Length];
+
+            // Assign the modified URP material to the array
+            for (int i = 0; i < originalURPMaterials.Length; i++)
+            {
+                if (originalURPMaterials[i].shader.name.StartsWith("Universal Render Pipeline/"))
+                {
+                    modifiedMaterials[i] = damagedMaterial;
+                }
+                else
+                {
+                    modifiedMaterials[i] = originalURPMaterials[i];
+                }
+            }
+
+            // Set the modified URP materials on the child renderer
+            renderer.sharedMaterials = modifiedMaterials;
+        }
+
         yield return new WaitForSeconds(invincibilityDuration);
+
+        // Revert the URP materials of the child renderers back to the original materials
+        for (int i = 0; i < renderers.Length; i++)
+        {
+            renderers[i].sharedMaterials = originalMaterials[i];
+        }
+
         invincibilityFrameActive = false;
     }
 
     private void StartInvincibilityFrames()
     {
-        StartCoroutine(ActivateInvincibilityFrames());
+        StartCoroutine(ActivateInvincibilityFrames(attackOtherObject));
     }
 
-    public bool SendEvent(EventExample eventSent) {
+    public bool SendEvent(EventController eventSent) {
         for (int i = 0; i < ObjectComponents.Count; i++) {
             if (!ObjectComponents[i].SendEvent(eventSent)) return false;
         }
@@ -76,7 +125,7 @@ public class ObjectExample : MonoBehaviour
 
 [Serializable]
 public class ObjectComponent {
-    public ObjectExample owner;
+    public ObjectSystem owner;
     public Dictionary<string, int> parameterDictionary = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
     public virtual void Initialize(List<ComponentParameter> parameters) {
         for (int i = 0; i < parameters.Count; i++) {
@@ -84,7 +133,7 @@ public class ObjectComponent {
         }
     }
     
-    public virtual bool SendEvent(EventExample eventSent) {
+    public virtual bool SendEvent(EventController eventSent) {
         return true;
     }
 }
@@ -106,7 +155,7 @@ public class ObjectComponentBlueprint {
     public string componentName;
     public List<ComponentParameter> parameters = new List<ComponentParameter>();
 
-    public ObjectComponent CreateObjectComponet(ObjectExample newOwner) {
+    public ObjectComponent CreateObjectComponet(ObjectSystem newOwner) {
         Assembly assembly = Assembly.GetExecutingAssembly();
 
         // Get the Type of the class using the class name
