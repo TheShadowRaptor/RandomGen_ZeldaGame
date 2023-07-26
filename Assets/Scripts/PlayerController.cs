@@ -39,6 +39,7 @@ public class PlayerController : MonoBehaviour
             return instance;
         }
     }
+
     private void OnEnable()
     {
         dash.action.performed += PerformDash;
@@ -61,7 +62,6 @@ public class PlayerController : MonoBehaviour
     {
         isDashing = true;
     }
-
 
     private void Awake()
     {

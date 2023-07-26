@@ -1,176 +1,272 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
 using UnityEngine;
+using UnityEngine.UIElements;
+using static Grid;
 
 public class DungeonGenerator : MonoBehaviour
 {
-    //public GameObject room;
-    //public Vector2Int size;
-    //public Vector2 offset;
+    static public GameObject[] rooms;
+    public GameObject room;
+    public GameObject cubePrefab;
 
-    //private HashSet<Vector2Int> visited;
-    //private List<GameObject> rooms;
+    public int roomLimit = 5;
 
-    //private List<GameObject> generatedRooms;
+    // Start is called before the first frame update
+    void Start()
+    {
 
-    //// Start is called before the first frame update
-    //void Start()
-    //{
-    //    StartCoroutine(GenerateDungeon());
-    //}
+    }
 
-    //IEnumerator GenerateDungeon()
-    //{
-    //    visited = new HashSet<Vector2Int>();
-    //    rooms = new List<GameObject>();
+    Cell SpawnStartRoom()
+    {
+        GameObject spawnedRoom = Instantiate(room, Instance.startCell.adjPos, Quaternion.identity);
+        spawnedRoom.name = $"Room: {Instance.startCell.oriPos.x} X| {Instance.startCell.oriPos.z} Z";
+        rooms[0] = spawnedRoom;
+        Instance.startCell.occupied = true;
+        return Instance.startCell;
+    }
 
-    //    for (int x = 0; x < size.x; x++)
-    //    {
-    //        for (int y = 0; y < size.y; y++)
-    //        {
-    //            Vector2Int coordinates = new Vector2Int(x, y);
-    //            if (!visited.Contains(coordinates))
-    //            {
-    //                yield return StartCoroutine(GenerateRoom(coordinates));
-    //            }
-    //        }
-    //    }
+    int roomCount = 0;
+    public void GenerateRooms()
+    {
+        Cell currentCell = null;
+        rooms = new GameObject[Instance.gridSizeX + Instance.gridSizeZ * 3];
+        currentCell = SpawnStartRoom();
 
-    //    ConnectRooms();
+        for (int i = 1; i < roomLimit; i++)
+        {
+            Cell cellPos = NextCell(currentCell);
+            GameObject spawnedRoom = Instantiate(room, cellPos.adjPos, Quaternion.identity);
+            currentCell = cellPos;
+            spawnedRoom.name = $"Room: {currentCell.oriPos.x} X| {currentCell.oriPos.z} Z";
+            roomCount++;
 
-    //    yield return null;
-    //}
+        }
+        //GameObject spawnedRoom = Instantiate(room, NextCell().adjPos, Quaternion.identity);
+        //spawnedRoom.name = $"Room: {cell.oriPos.x} X| {cell.oriPos.z} Z";
+        //rooms[roomCount] = spawnedRoom;
+        //cell.occupied = true;
 
-    //IEnumerator GenerateRoom(Vector2Int coordinates)
-    //{
-    //    List<bool> doorStatus = new List<bool>();
+        //roomCount++;
+        
+        Debug.Log($"rooms {rooms.Length}");
+        roomCount = 0;
+        ConnectRooms();
+    }
 
-    //    // Check if room has a neighbor in each direction
-    //    bool up = coordinates.y > 0 && visited.Contains(coordinates + Vector2Int.down);
-    //    bool down = coordinates.y < size.y - 1 && visited.Contains(coordinates + Vector2Int.up);
-    //    bool right = coordinates.x < size.x - 1 && visited.Contains(coordinates + Vector2Int.right);
-    //    bool left = coordinates.x > 0 && visited.Contains(coordinates + Vector2Int.left);
+    int randomDirNum;
+    bool skipCell = false;
+    private Cell NextCell(Cell currentCell)
+    {
+        // Used for finding what direction to generate next
+        randomDirNum = Random.Range(0, 3);
+        Cell preCell = currentCell;
 
-    //    doorStatus.Add(!up);      // Index 0 represents the up door
-    //    doorStatus.Add(!down);    // Index 1 represents the down door
-    //    doorStatus.Add(!right);   // Index 2 represents the right door
-    //    doorStatus.Add(!left);    // Index 3 represents the left door
+        bool loop = true;
+        int loopTime = 0;
+        while (loop)
+        {
+            switch (randomDirNum)
+            {
+                case 0:
+                    // Up cell
+                    if (IsValidCell(preCell.oriPos.x, preCell.oriPos.z + 1))
+                    {
+                        Cell upCell = cells[preCell.oriPos.x, preCell.oriPos.z + 1];
+                        preCell.oriPos.x = currentCell.oriPos.x;
+                        preCell.oriPos.z = currentCell.oriPos.z + 1;
 
-    //    var newRoom = Instantiate(room, new Vector3(coordinates.x * offset.x, 0, coordinates.y * offset.y), Quaternion.identity, transform);
-    //    newRoom.name += " " + coordinates.x + "-" + coordinates.y;
-    //    rooms.Add(newRoom);
+                        preCell.adjPos.x = currentCell.adjPos.x;
+                        preCell.adjPos.z = currentCell.adjPos.z + Instance.cellSize;
 
-    //    visited.Add(coordinates);
+                        if (upCell.occupied)
+                        {
+                            skipCell = true;
+                        }
+                    }
+                    else skipCell = true;
+                    break;
 
-    //    // Check the door states of the neighboring rooms and update the doorStatus list accordingly
-    //    if (up)
-    //    {
-    //        int aboveX = coordinates.x;
-    //        int aboveY = coordinates.y - 1;
-    //        int aboveRoomIndex = aboveX * size.y + aboveY;
-    //        GameObject aboveRoom = rooms[aboveRoomIndex];
-    //        RoomBehaviour aboveRoomBehaviour = aboveRoom.GetComponent<RoomBehaviour>();
-    //        bool[] aboveDoors = aboveRoomBehaviour.GetDoorStates();
-    //        doorStatus[0] = aboveDoors[1];  // Set the up door state based on the down door of the above room
-    //        aboveRoomBehaviour.UpdateDoorState(1, true); // Open the down door of the above room
-    //    }
+                case 1:
+                    // down cell
+                    if (IsValidCell(preCell.oriPos.x, preCell.oriPos.z - 1))
+                    {
+                        Cell downCell = cells[preCell.oriPos.x, preCell.oriPos.z - 1];
+                        preCell.oriPos.x = currentCell.oriPos.x;
+                        preCell.oriPos.z = currentCell.oriPos.z - 1;
 
-    //    if (down)
-    //    {
-    //        int belowX = coordinates.x;
-    //        int belowY = coordinates.y + 1;
-    //        int belowRoomIndex = belowX * size.y + belowY;
-    //        GameObject belowRoom = rooms[belowRoomIndex];
-    //        RoomBehaviour belowRoomBehaviour = belowRoom.GetComponent<RoomBehaviour>();
-    //        bool[] belowDoors = belowRoomBehaviour.GetDoorStates();
-    //        doorStatus[1] = belowDoors[0];  // Set the down door state based on the up door of the below room
-    //        belowRoomBehaviour.UpdateDoorState(0, true); // Open the up door of the below room
-    //    }
+                        preCell.adjPos.x = currentCell.adjPos.x;
+                        preCell.adjPos.z = currentCell.adjPos.z - Instance.cellSize;
+                        if (downCell.occupied)
+                        {
+                            skipCell = true;
+                        }
+                    }
+                    else skipCell = true;
+                    break;
 
-    //    if (right)
-    //    {
-    //        int rightX = coordinates.x + 1;
-    //        int rightY = coordinates.y;
-    //        int rightRoomIndex = rightX * size.y + rightY;
-    //        GameObject rightRoom = rooms[rightRoomIndex];
-    //        RoomBehaviour rightRoomBehaviour = rightRoom.GetComponent<RoomBehaviour>();
-    //        bool[] rightDoors = rightRoomBehaviour.GetDoorStates();
-    //        doorStatus[2] = rightDoors[3]; // Set the right door state based on the left door of the right room
-    //        rightRoomBehaviour.UpdateDoorState(3, true); // Open the left door of the right room
-    //    }
+                case 2:
+                    // Left cell
+                    if (IsValidCell(preCell.oriPos.x - 1, preCell.oriPos.z))
+                    {
+                        Cell leftCell = cells[preCell.oriPos.x - 1, preCell.oriPos.z];
+                        preCell.oriPos.x = currentCell.oriPos.x - 1;
+                        preCell.oriPos.z = currentCell.oriPos.z;
 
-    //    if (left)
-    //    {
-    //        int leftX = coordinates.x - 1;
-    //        int leftY = coordinates.y;
-    //        int leftRoomIndex = leftX * size.y + leftY;
-    //        GameObject leftRoom = rooms[leftRoomIndex];
-    //        RoomBehaviour leftRoomBehaviour = leftRoom.GetComponent<RoomBehaviour>();
-    //        bool[] leftDoors = leftRoomBehaviour.GetDoorStates();
-    //        doorStatus[3] = leftDoors[2]; // Set the left door state based on the right door of the left room
-    //        leftRoomBehaviour.UpdateDoorState(2, true); // Open the right door of the left room
-    //    }
+                        preCell.adjPos.x = currentCell.adjPos.x - Instance.cellSize;
+                        preCell.adjPos.z = currentCell.adjPos.z;
+                        if (leftCell.occupied)
+                        {
+                            skipCell = true;
+                        }
+                    }
+                    else skipCell = true;
+                    break;
 
-    //    newRoom.GetComponent<RoomBehaviour>().UpdateRoom(doorStatus.ToArray()); // Update the room's doors
+                case 3:
+                    // Right cell
+                    if (IsValidCell(preCell.oriPos.x + 1, preCell.oriPos.z))
+                    {
+                        Cell rightCell = cells[preCell.oriPos.x + 1, preCell.oriPos.z];
+                        preCell.oriPos.x = currentCell.oriPos.x + 1;
+                        preCell.oriPos.z = currentCell.oriPos.z;
 
-    //    yield return null;
-    //}
+                        preCell.adjPos.x = currentCell.adjPos.x + Instance.cellSize;
+                        preCell.adjPos.z = currentCell.adjPos.z;
+                        if (rightCell.occupied)
+                        {
+                            skipCell = true;
+                        }
+                    }
+                    else skipCell = true;
+                    break;
+            }
 
-    //void ConnectRooms()
-    //{
-    //    foreach (GameObject room in rooms)
-    //    {
-    //        RoomBehaviour roomBehaviour = room.GetComponent<RoomBehaviour>();
-    //        bool[] doors = roomBehaviour.GetDoorStates();
+            if (!skipCell)
+            {
+                loopTime += 1;
+                if (loopTime == 1000)
+                {
+                    loop = false;
+                    loopTime = 0;
+                }
 
+                if (IsValidCell(preCell.oriPos.x, preCell.oriPos.z))
+                {
+                    loop = false;
+                    loopTime = 0;
+                }
+                else preCell = currentCell;
+                skipCell = false;
+            }
+        }
+        Debug.Log($"precell = {preCell.oriPos}");
+        Debug.Log($"currentCell = {currentCell.oriPos}");
+        return preCell;
+    }
 
-    //        if (doors[0]) // If the up door is closed
-    //        {
-    //            if (y > 0) // Check if there is a room above
-    //            {
-    //                int aboveRoomIndex = room.gameObject.transform.position.x + y - 1);
-    //                GameObject aboveRoom = rooms[aboveRoomIndex];
-    //                RoomBehaviour aboveRoomBehaviour = aboveRoom.GetComponent<RoomBehaviour>();
-    //                aboveRoomBehaviour.UpdateDoorState(0, false); // Open the down door (index 1) of the above room
-    //                roomBehaviour.UpdateDoorState(1, false); // Open the up door (index 0) of the current room
-    //            }
-    //        }
+    private void ConnectRooms()
+    {
+        foreach (Cell cell in cells)
+        {
+            if (cell.occupied)
+            {
+                Debug.Log($"Grid Size {cells.Length}");
+                //Debug.Log($"cell {dbugCount}");
+                // Up
+                if (IsValidCell(cell.oriPos.x, cell.oriPos.z + 1)) // Up cell
+                {
+                    Cell upCell = cells[cell.oriPos.x, cell.oriPos.z + 1];
+                    if (upCell.occupied)
+                    {
+                        rooms[roomCount].GetComponent<RoomBehaviour>().UpdateDoorState(0, false);
+                        //Debug.Log("works");
+                        //GameObject cube = Instantiate(cubePrefab, new Vector3Int(upCell.adjPos.x, upCell.adjPos.y, upCell.adjPos.z - 9), Quaternion.identity);
+                        //cube.transform.localScale = new Vector3(2,2,2);
+                        //cube.name = $"Cube_Up {cell.oriPos.x} X| {cell.oriPos.z} Z"; 
+                    }
+                }
+                else
+                {
+                    rooms[roomCount].GetComponent<RoomBehaviour>().UpdateDoorState(0, true);
+                    //Debug.LogError("NotValidUPCell");
+                }
 
-    //        if (doors[1]) // If the down door is closed
-    //        {
-    //            if (y < size.y - 1) // Check if there is a room below
-    //            {
-    //                int belowRoomIndex = x * size.y + (y + 1);
-    //                GameObject belowRoom = rooms[belowRoomIndex];
-    //                RoomBehaviour belowRoomBehaviour = belowRoom.GetComponent<RoomBehaviour>();
-    //                belowRoomBehaviour.UpdateDoorState(1, false); // Open the up door (index 0) of the below room
-    //                roomBehaviour.UpdateDoorState(0, false); // Open the down door (index 1) of the current room
-    //            }
-    //        }
+                // Down
+                if (IsValidCell(cell.oriPos.x, cell.oriPos.z - 1)) // down cell
+                {
+                    Cell downCell = cells[cell.oriPos.x, cell.oriPos.z - 1];
+                    if (downCell.occupied)
+                    {
+                        rooms[roomCount].GetComponent<RoomBehaviour>().UpdateDoorState(1, false);
+                        //Debug.Log("works");
+                        //GameObject cube = Instantiate(cubePrefab, new Vector3Int(downCell.adjPos.x, downCell.adjPos.y, downCell.adjPos.z + 1), Quaternion.identity);
+                        //cube.transform.localScale = new Vector3(2, 2, 2);
+                        //cube.name = $"Cube_Down {cell.oriPos.x} X| {cell.oriPos.z} Z";
+                    }
+                }
+                else
+                {
+                    rooms[roomCount].GetComponent<RoomBehaviour>().UpdateDoorState(1, true);
+                    //Debug.LogError("NotValidLeftCell");
+                }
 
-    //        if (doors[2]) // If the right door is closed
-    //        {
-    //            if (x < size.x - 1) // Check if there is a room to the right
-    //            {
-    //                int rightRoomIndex = (x + 1) * size.y + y;
-    //                GameObject rightRoom = rooms[rightRoomIndex];
-    //                RoomBehaviour rightRoomBehaviour = rightRoom.GetComponent<RoomBehaviour>();
-    //                rightRoomBehaviour.UpdateDoorState(3, false); // Open the left door (index 3) of the right room
-    //                roomBehaviour.UpdateDoorState(2, false); // Open the right door (index 2) of the current room
-    //            }
-    //        }
+                // Left
+                if (IsValidCell(cell.oriPos.x - 1, cell.oriPos.z)) // left cell
+                {
+                    Cell leftCell = cells[cell.oriPos.x - 1, cell.oriPos.z];
+                    if (leftCell.occupied)
+                    {
+                        rooms[roomCount].GetComponent<RoomBehaviour>().UpdateDoorState(2, false);
+                        //Debug.Log("works");
+                        //GameObject cube = Instantiate(cubePrefab, new Vector3Int(leftCell.adjPos.x + 6, leftCell.adjPos.y, leftCell.adjPos.z - 5), Quaternion.identity);
+                        //cube.transform.localScale = new Vector3(2, 2, 2);
+                        //cube.name = $"Cube_Left {cell.oriPos.x} X| {cell.oriPos.z} Z";
+                    }
+                }
+                else
+                {
+                    rooms[roomCount].GetComponent<RoomBehaviour>().UpdateDoorState(2, true);
+                    //Debug.LogError("NotValidLeftCell");
+                }
 
-    //        if (doors[3]) // If the left door is closed
-    //        {
-    //            if (x > 0) // Check if there is a room to the left
-    //            {
-    //                int leftRoomIndex = (x - 1) * size.y + y;
-    //                GameObject leftRoom = rooms[leftRoomIndex];
-    //                RoomBehaviour leftRoomBehaviour = leftRoom.GetComponent<RoomBehaviour>();
-    //                leftRoomBehaviour.UpdateDoorState(2, false); // Open the right door (index 2) of the left room
-    //                roomBehaviour.UpdateDoorState(3, false); // Open the left door (index 3) of the current room
-    //            }
-    //        }
-    //    }
-    //}
+                // Right
+                if (IsValidCell(cell.oriPos.x + 1, cell.oriPos.z)) // right cell
+                {
+                    Cell rightCell = cells[cell.oriPos.x + 1, cell.oriPos.z];
+                    if (rightCell.occupied)
+                    {
+                        rooms[roomCount].GetComponent<RoomBehaviour>().UpdateDoorState(3, false);
+                        //Debug.Log("works");
+                        //GameObject cube = Instantiate(cubePrefab, new Vector3Int(rightCell.adjPos.x - 6, rightCell.adjPos.y, rightCell.adjPos.z - 5), Quaternion.identity);
+                        //cube.transform.localScale = new Vector3(2, 2, 2);
+                        //cube.name = $"Cube_Right {cell.oriPos.x} X| {cell.oriPos.z} Z";
+                    }
+                }
+                else
+                {
+                    rooms[roomCount].GetComponent<RoomBehaviour>().UpdateDoorState(3, true);
+                    //Debug.LogError("NotValidUPCell");
+                }
+                roomCount++;
+        
+                roomCount = 0;
+            }
+            else
+            {
+                rooms[roomCount].GetComponent<RoomBehaviour>().UpdateDoorState(0, true);
+                rooms[roomCount].GetComponent<RoomBehaviour>().UpdateDoorState(1, true);
+                rooms[roomCount].GetComponent<RoomBehaviour>().UpdateDoorState(2, true);
+                rooms[roomCount].GetComponent<RoomBehaviour>().UpdateDoorState(3, true);
+            }
+        }
+    }
+
+    private bool IsValidCell(int x, int z)
+    {
+        return x >= 0 && x < Instance.gridSizeX && z >= 0 && z < Instance.gridSizeZ;
+    }
 }

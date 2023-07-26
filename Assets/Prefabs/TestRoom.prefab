@@ -20,7 +20,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &941839506568946747
 Transform:
   m_ObjectHideFlags: 0
@@ -1292,7 +1292,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &941839507665049307
 Transform:
   m_ObjectHideFlags: 0
@@ -1636,7 +1636,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &941839507701109010
 Transform:
   m_ObjectHideFlags: 0
@@ -1980,7 +1980,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &941839507792426475
 Transform:
   m_ObjectHideFlags: 0
@@ -3525,12 +3525,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4286411a90d1df8438ea141e4eca96ca, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  walls: []
   doors:
   - {fileID: 941839507792426476}
   - {fileID: 941839507665049308}
-  - {fileID: 941839506568946748}
   - {fileID: 941839507701109096}
+  - {fileID: 941839506568946748}
 --- !u!1 &941839508337586509
 GameObject:
   m_ObjectHideFlags: 0
