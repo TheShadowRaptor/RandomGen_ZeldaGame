@@ -1,4 +1,5 @@
 using DG.Tweening;
+using System.Collections;
 using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -6,21 +7,8 @@ using UnityEngine.UI;
 
 public class PlayerController : MonoBehaviour
 {
+    // Singleton
     private static PlayerController instance;
-
-    private Vector2 moveInput;
-    private bool dashInput;
-
-    [SerializeField] private GameObject body;
-    [SerializeField] private Animator animator;
-    private int animationAttackHash;
-
-    [SerializeField] GameObject weaponHand;
-
-    [SerializeField] float moveSpeed = 1f;
-
-    [SerializeField] private InputActionReference move, dash, attack;
-
     public static PlayerController Instance
     {
         get
@@ -40,28 +28,38 @@ public class PlayerController : MonoBehaviour
         }
     }
 
-    private void OnEnable()
-    {
-        dash.action.performed += PerformDash;
-        attack.action.performed += PerformAttack;
-    }
+    [Header("Components")]
+    [SerializeField] private GameObject body;
+    [SerializeField] private Animator animator;
+    [SerializeField] private GameObject weaponHand;
 
-    private void OnDisable()
-    {
-        dash.action.performed -= PerformDash;
-        attack.action.performed -= PerformAttack;
-    }
+    [Header("Input Settings")]
+    [SerializeField] private InputActionReference move;
+    [SerializeField] private InputActionReference dash;
+    [SerializeField] private InputActionReference attack;
+    private Vector2 moveInput;
 
-    private void PerformAttack(InputAction.CallbackContext context)
-    {
-        SwingSword();
-    }
+    [Header("Movement Settings")]
+    [SerializeField] private float moveSpeed = 1f;
+    [SerializeField] private float dashLength = 0.2f;
+    [SerializeField] private float dashRecharge = 0.5f;
+    private float initDashLength;
+    private float initdashRecharge;
 
-    bool isDashing;
-    private void PerformDash(InputAction.CallbackContext context)
-    {
-        isDashing = true;
-    }
+    [Header("Weapon Settings")]
+    [SerializeField] private float weaponRayLength;
+    [SerializeField] private LayerMask hitableMasks;
+
+    [Header("Slope Settings")]
+    [SerializeField] private LayerMask terrainMasks;
+    [SerializeField] private Transform feetTransform;
+    [SerializeField] private float maxSlopeAngle = 45;
+
+    // Movement Varibles
+    private Quaternion targetRotation;
+    private Vector3 lastMovementDirectionSlope = Vector3.zero; 
+
+    private bool isDashing;
 
     private void Awake()
     {
@@ -74,51 +72,53 @@ public class PlayerController : MonoBehaviour
         {
             Destroy(this.gameObject);
         }
+
+        this.dash.action.performed += (ctx) => this.isDashing = true;
+        this.attack.action.performed += (ctx) => this.SwingSword();
+    }
+
+    private void OnDisable()
+    {
+        this.dash.action.performed -= (ctx) => this.isDashing = true;
+        this.attack.action.performed -= (ctx) => this.SwingSword();
     }
 
     // Start is called before the first frame update
     void Start()
     {
+        initDashLength = dashLength;
+        initdashRecharge = dashRecharge;
+
         animator = GetComponent<Animator>();
-        animationAttackHash = Animator.StringToHash("SwingSword1");
     }
 
     // Update is called once per frame
     void Update()
     {
-        CheckAnimationStates();
-        MovePlayer();
+        if (move.action.phase != InputActionPhase.Waiting) MovePlayer();
         if (!IsGrounded() && !isDashing) TogglePlayerGravity();
-        if (canHit)
-        {
-            CheckForHitable();
-        }
     }
 
-    Quaternion targetRotation;
-
-    float dashLength = 0.2f;
-    float initDashLength = 0.2f;
-    float dashRecharge = 0.5f;
-    float initdashRecharge = 0.5f;
-    Vector3 lastMovementDirection = Vector3.zero; // Variable to store the last movement direction
-
-    void MovePlayer()
+    private void MovePlayer()
     {
         moveInput = move.action.ReadValue<Vector2>();
+
+        Debug.Log("MoveInput: " + moveInput); // Log move input values
+
         Vector3 cameraForward = Camera.main.transform.forward;
         Vector3 cameraRight = Camera.main.transform.right;
+
         cameraForward.y = 0f; // Ensure the camera is not pointing up or down
         cameraRight.y = 0f;
         cameraForward.Normalize();
         cameraRight.Normalize();
 
+        // Vector3 movement = cameraRight * moveInput.x + cameraForward * moveInput.y;
         Vector3 movement = cameraRight * moveInput.x + cameraForward * moveInput.y;
         movement.y = 0f; // Disable any vertical movement
         movement.Normalize(); // Normalize the movement vector to ensure its magnitude does not exceed 1
 
         dashRecharge -= Time.deltaTime;
-
 
         // Check for wall collision
         if (CheckWallCollision(movement.normalized))
@@ -137,35 +137,38 @@ public class PlayerController : MonoBehaviour
         // Store the last movement direction when not dashing
         if (movement.magnitude > 0f)
         {
-            lastMovementDirection = movement.normalized;
+            lastMovementDirectionSlope = movement.normalized;
         }
 
         if (isDashing && dashRecharge <= 0)
         {
+            animator.SetBool("Roll", true);
             dashRecharge = 0;
             dashLength -= Time.deltaTime;
-            if (CheckForSlope(lastMovementDirection.normalized) || CheckForStep(lastMovementDirection.normalized))
+            if (CheckForSlope(lastMovementDirectionSlope.normalized) || CheckForStep(lastMovementDirectionSlope.normalized))
             {
                 // Dash up steps and slopes
-                lastMovementDirection += Vector3.up;
-                gameObject.transform.Translate(lastMovementDirection * moveSpeed * 4f * Time.deltaTime);
+                lastMovementDirectionSlope += Vector3.up;
+                gameObject.transform.Translate(lastMovementDirectionSlope * moveSpeed * 2f * Time.deltaTime);
             }
-            if (!CheckWallCollision(lastMovementDirection.normalized))
+            if (!CheckWallCollision(lastMovementDirectionSlope.normalized))
             {
                 // Movement when dashing
-                gameObject.transform.Translate(lastMovementDirection * moveSpeed * 4f * Time.deltaTime);
+                gameObject.transform.Translate(lastMovementDirectionSlope * moveSpeed * 2f * Time.deltaTime);
             }
             else
             {
                 // If hit wall
+                animator.SetBool("Roll", false);
                 isDashing = false;
                 dashLength = initDashLength;
                 dashRecharge = initdashRecharge;
-                lastMovementDirection = Vector3.zero;
+                lastMovementDirectionSlope = Vector3.zero;
             }
 
             if (dashLength <= 0)
             {
+                animator.SetBool("Roll", false);
                 isDashing = false;
                 dashLength = initDashLength;
                 dashRecharge = initdashRecharge;
@@ -173,9 +176,9 @@ public class PlayerController : MonoBehaviour
         }
         else
         {
-
             // Move player
             gameObject.transform.Translate(movement * moveSpeed * Time.deltaTime);
+               
         }
 
         if (movement.magnitude > 0f)
@@ -184,6 +187,7 @@ public class PlayerController : MonoBehaviour
         }
 
         body.transform.rotation = Quaternion.Lerp(body.transform.rotation, targetRotation, 8f * Time.deltaTime);
+        Debug.Log(moveSpeed);
     }
 
     void TogglePlayerGravity()
@@ -191,40 +195,30 @@ public class PlayerController : MonoBehaviour
         gameObject.transform.Translate(-Vector3.up * 9.81f * Time.deltaTime);
     }
 
-    bool canHit;
-    [SerializeField] float weaponRayLength;
-    [SerializeField] LayerMask hitableMasks;
     void SwingSword()
     {
-        canHit = true;     
         animator.SetBool("Attack", true);
+        StartCoroutine(CheckForHitable());   
     }
 
-    void CheckForHitable()
+    IEnumerator CheckForHitable()
     {
-        GameObject currentWeaponRaycast = weaponHand.transform.GetChild(0).GetChild(0).GetChild(0).gameObject; //Hand/HandPivot/Weapon/WeaponRaycast
-        Debug.DrawRay(currentWeaponRaycast.transform.position, currentWeaponRaycast.gameObject.transform.forward, Color.red, weaponRayLength);
-        if (Physics.Raycast(currentWeaponRaycast.transform.position, currentWeaponRaycast.gameObject.transform.forward, out RaycastHit hit, weaponRayLength, hitableMasks) && canHit)
+        while (animator.GetCurrentAnimatorStateInfo(0).normalizedTime < 1.0f) 
         {
-            ObjectSystem targetObject = hit.collider.gameObject.GetComponent<ObjectSystem>();
-            this.gameObject.GetComponent<ObjectSystem>().attackOtherObject = targetObject;
-            this.gameObject.GetComponent<ObjectSystem>().DoAttack();
+            GameObject currentWeaponRaycast = weaponHand.transform.GetChild(0).GetChild(0).GetChild(0).gameObject; //Hand/HandPivot/Weapon/WeaponRaycast
+            Debug.DrawRay(currentWeaponRaycast.transform.position, currentWeaponRaycast.gameObject.transform.forward, Color.red, weaponRayLength);
+            if (Physics.Raycast(currentWeaponRaycast.transform.position, currentWeaponRaycast.gameObject.transform.forward, out RaycastHit hit, weaponRayLength, hitableMasks))
+            {
+                ObjectSystem targetObject = hit.collider.gameObject.GetComponent<ObjectSystem>();
+                this.gameObject.GetComponent<ObjectSystem>().attackOtherObject = targetObject;
+                this.gameObject.GetComponent<ObjectSystem>().DoAttack();
+            }
+            yield return new WaitForFixedUpdate();
         }
+        animator.SetBool("Attack", false);
+        yield break;
     }
 
-    void CheckAnimationStates()
-    {
-        // Check if the desired animation state has finished playing
-        if (animator.GetCurrentAnimatorStateInfo(0).normalizedTime >= 1.0f
-            && animator.GetCurrentAnimatorStateInfo(0).IsName("SwingSword1"))
-        {
-            // Animation has finished playing
-            animator.SetBool("Attack", false);
-            canHit = false;
-        }
-    }
-
-    [SerializeField] private LayerMask terrainMasks;
     private bool CheckWallCollision(Vector3 movementDirection)
     {
         Vector3 playerTorso = transform.position;
@@ -246,8 +240,6 @@ public class PlayerController : MonoBehaviour
         return false;
     }
 
-    [SerializeField] private Transform feetTransform;
-    [SerializeField] private float maxSlopeAngle = 45;
     bool CheckForSlope(Vector3 movementDirection)
     {
         float slopeRayLength = 1.0f; // Adjust the length based on the maximum slope height you want to handle
