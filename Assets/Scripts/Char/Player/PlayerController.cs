@@ -246,7 +246,7 @@ public class PlayerController : MonoBehaviour, IKillable
         else
         {
             // Move player
-            if (inAttackingStance) ; //gameObject.transform.Translate(movement * moveSpeed * 0.1f * Time.deltaTime);
+            if (inAttackingStance) { } //gameObject.transform.Translate(movement * moveSpeed * 0.1f * Time.deltaTime);
             else gameObject.transform.Translate(movement * moveSpeed * Time.deltaTime);
 
             if (movement.x > 0 || movement.x < 0 || movement.z > 0 || movement.z < 0) animator.SetFloat("Movement", 1);

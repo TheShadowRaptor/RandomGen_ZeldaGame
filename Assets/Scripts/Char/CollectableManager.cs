@@ -22,7 +22,7 @@ public class CollectableManager : MonoBehaviour
 
         if (Input.GetKeyDown(KeyCode.I))
         {
-            SpawnCollectable();
+            //SpawnCollectable(collectableDataObjects[0], transform.position);
         }
     }
 
