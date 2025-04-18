@@ -24,7 +24,10 @@ public class EnemyController : MonoBehaviour
     bool PlayerIsSeen() 
     {
         Vector3 newDist = player.gameObject.transform.position;
-        if (Vector3.Distance(transform.position, newDist) < 5 )
+        if (Vector3.Distance(transform.position, newDist) < 5 ) 
+        {
+            return true;
+        }
         return false;
     }
 }
