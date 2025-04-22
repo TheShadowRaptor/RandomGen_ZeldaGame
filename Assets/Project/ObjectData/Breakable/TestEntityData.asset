@@ -10,12 +10,20 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5c287be92f9dfc541b0e55310998c5e6, type: 3}
-  m_Name: PotData
+  m_Name: TestEntityData
   m_EditorClassIdentifier: 
-  entityName: Pot
+  name: 
   prefab: {fileID: 0}
-  entityType: 2
-  spawnArea: 4
-  weaknesses: 
-  dropTable: []
-  rarity: 0
+  spawnArea: 0
+  dropPool:
+    dropItem: {fileID: 0}
+    dropChance: 0
+  health: 50
+  damage: 1
+  defense: 1
+  elementDefenseModifiers:
+  - type: 0
+    multiplier: 1
+  damageDefenseModifiers:
+  - type: 1
+    multiplier: 1

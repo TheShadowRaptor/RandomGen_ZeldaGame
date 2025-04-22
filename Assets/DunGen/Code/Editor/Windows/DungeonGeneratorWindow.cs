@@ -50,7 +50,7 @@ namespace DunGen.Editor
 					generator.DetachDungeon();
 			}
 
-			lastDungeon = new GameObject("Dungeon Layout");
+            lastDungeon = new UnityEngine.GameObject("Dungeon Layout");
 			generator.Root = lastDungeon;
 
 			Undo.RegisterCreatedObjectUndo(lastDungeon, "Create Procedural Dungeon");

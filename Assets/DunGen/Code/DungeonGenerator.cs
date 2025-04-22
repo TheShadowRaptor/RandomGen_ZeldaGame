@@ -217,7 +217,7 @@ namespace DunGen
 			RandomStream = new RandomStream(ChosenSeed);
 
 			if (Root == null)
-				Root = new GameObject(Constants.DefaultDungeonRootName);
+                Root = new UnityEngine.GameObject(Constants.DefaultDungeonRootName);
 
 
 			yield return Wait(InnerGenerate(false));

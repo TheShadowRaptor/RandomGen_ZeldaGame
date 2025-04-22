@@ -16,7 +16,7 @@ namespace DunGen
 			{
 				if (instance == null)
 				{
-					var obj = new GameObject("DunGen Coroutine Helper");
+					var obj = new UnityEngine.GameObject("DunGen Coroutine Helper");
 					obj.hideFlags = HideFlags.HideInHierarchy;
 
 					instance = obj.AddComponent<CoroutineHelper>();
